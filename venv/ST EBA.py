@@ -6,18 +6,10 @@ import re
 import string
 
 folder = "C:/Users/admin/Documents/Pilotage LBP"
-path_referentiel = folder + "/Dictionnaire de données - 019.xlsx"
-path_excel = folder + "/Exemple - Dashboard PPH - 009.xlsx"
-
-referentiel_address_dict = {'Indicateurs_Bilan': ["Indicateurs - Bilan comptable", "D4:H"],
-                            'Indicateurs_PL': ["Indicateurs - P&L", "D4:H"],
-                            'Indicateurs_Activite': ["Indicateurs - Activité", "D4:H"],
-                            'Indicateurs_Risques': ["Indicateurs - Risques", "D4:H"],
-                            'Produit': ["Produits", "D4:H"],
-                            'Entité juridique': ["EJ & UG", "F4:I"],
-                            'Unité de gestion / Direction': ["EJ & UG", "K4:P"],
-                            'Distribution': ["EJ & UG", "R4:T"],
-                            'Segment client / marché': ["EJ & UG", "V4:Z"]}
+path_excel = "C:/Users/admin/Documents/Pilotage LBP/Consolidation 017 - test.xlsx"
+path_excel = "C:/Users/admin/Documents/Pilotage LBP/Exemple - Dashboard PPH.xlsx"
+folder = "C:/Users/admin/Documents/ST EBA ALM 2021/Template"
+path_excel = folder + "/Template Conso v68.xlsm"
 
 
 # %% Load from ws excel 'range_string' range in the form of 'A1:B2' or 'A:B' or ''
@@ -125,82 +117,52 @@ def Clean_Table(table, table_name):
         return None
 
 
-# Load data dictionnary
-wb = pyxl.load_workbook(path_referentiel, read_only=True, keep_vba=False, data_only=True, keep_links=False)
-Referentiel = Load_Table_From_Excel(referentiel_address_dict, wb, bFirstRowasHeader=True)
-wb.close()
-
-Referentiel['Indicateur'] = pd.concat([Referentiel['Indicateurs_Bilan'],
-                                       Referentiel['Indicateurs_PL'],
-                                       Referentiel['Indicateurs_Activite'],
-                                       Referentiel['Indicateurs_Risques']])
-
-Referentiel['Unité de gestion après réallocation'] = Referentiel['Unité de gestion / Direction']
-
-
 # Load workbook
 wb = pyxl.load_workbook(path_excel, read_only=True, keep_vba=False, data_only=True, keep_links=False)
+#
+# table_address_dict = dict()
+# for name in wb.sheetnames:
+#     # if name[0].isdigit():
+#     if name == "C.1.1.a. PPH dashboard":
+#         table_address_dict[name] = [name, ""]
+#
+# Table = Load_Table_From_Excel(table_address_dict, wb)
+# wb.close()
+#
+#
+# Out = pd.DataFrame()
+# for table_name in Table.keys():
+#     print(table_name)
+#     Out = pd.concat([Out, Clean_Table(Table[table_name], table_name)])
+#
+# Out.columns = ["Entité juridique", "Unité de gestion / Direction", "Unité de gestion après réallocation", "Segment client / marché", "Distribution", "Produit", "Indicateur", "Type d'indicateur", "Phase", "Adresse"]
+#
+# Out.to_csv(folder + "/Carto_out.csv", encoding='utf-8-sig', index=False)
 
+
+# Template EBA load
 table_address_dict = dict()
-for name in wb.sheetnames:
-    if ((not name[0].isdigit()) and name[1] == "." and name[2].isdigit()):
-    # if name == "C.1.1.a. PPH dashboard":
-        table_address_dict[name] = [name, ""]
+table_address_dict["CSV_NII_CALC"] = ["CSV_NII_CALC", "B3:JJ848"]
 
-Table = Load_Table_From_Excel(table_address_dict, wb)
+NII_calc = Load_Table_From_Excel(table_address_dict, wb, bFirstRowasHeader =True)["CSV_NII_CALC"]
 wb.close()
 
+# Index rows
+col_name_row = NII_calc.iloc[11][0:8]
+NII_calc.columns = col_name_row.tolist() + NII_calc.columns.tolist()[len(col_name_row):]
 
-Out = pd.DataFrame()
-for table_name in Table.keys():
-    print(table_name)
-    Out = pd.concat([Out, Clean_Table(Table[table_name], table_name)])
+NII_calc = NII_calc[[col for col in NII_calc.columns.tolist() if col != None]]
 
-Out.columns = ["Entité juridique", "Unité de gestion / Direction", "Unité de gestion après réallocation", "Segment client / marché", "Distribution", "Produit", "Indicateur", "Type d'indicateur", "Phase", "Adresse"]
+# Index mapping columns
+mapping_col = NII_calc.iloc[0:6, 8:].T.reset_index()
+mapping_col.columns = ["variable", "Fixed/Floating", "Actual/Proj", "Performing/NPE", "Time Bucket", "Indicator", "SubIndicator"]
 
-Out.to_csv(folder + "/Carto_out.csv", encoding='utf-8-sig', index=False)
+# Melt and map columns
+NII_calc = NII_calc.iloc[12:].melt(id_vars=col_name_row.tolist())
+NII_calc = NII_calc.merge(mapping_col, how="left", on="variable")
 
+# Output
+NII_calc.rename(columns={'variable':'ColNum'}, inplace=True)
+NII_calc = NII_calc[[c for c in NII_calc if c != "value"] + ["value"]]
 
-def cartesian_product(*arrays):
-    la = len(arrays)
-    dtype = np.result_type(*arrays)
-    arr = np.empty([len(a) for a in arrays] + [la], dtype=dtype)
-    for i, a in enumerate(np.ix_(*arrays)):
-        arr[...,i] = a
-    return arr.reshape(-1, la)
-
-def cartesian_product_multi(*dfs):
-    idx = cartesian_product(*[np.ogrid[:len(df)] for df in dfs])
-    return pd.DataFrame(
-        np.column_stack([df.values[idx[:,i]] for i,df in enumerate(dfs)]))
-
-
-Out_eclate = dict()
-Out_columns = [col for sublist in [Referentiel[dim].columns.tolist() for dim in Out.columns[0:7]] for col in sublist]
-Out_iter = Out[Out.columns[0:7]].drop_duplicates().reset_index(drop=True)
-for index, row in Out_iter.iterrows():
-    print(index)
-    row_ = pd.DataFrame(row).transpose()
-    Out_ = row_
-    for dimension in row_.columns:
-        item = row[dimension]
-
-        if item == 'Tous':
-            match_ = Referentiel[dimension]
-        else:
-            match_ = Referentiel[dimension][Referentiel[dimension].isin([item]).any(axis=1)].copy()
-
-        if match_.shape[0] == 0 or Out_.shape[0] == 0:
-            # Cartesian product
-            Out_['key'] = 0
-            match_['key'] = 0
-            Out_ = Out_.merge(match_, on='key', how='outer').drop(columns=['key'])
-        else:
-            Out_ = cartesian_product_multi(*[Out_, match_])
-
-    Out_.columns = [col for col in row_.columns.tolist() if col != 'key'] + Out_columns
-    Out_eclate[index] = Out_
-
-test = pd.concat([v for k, v in Out_eclate.items()], axis=0)
-
-
+NII_calc.to_csv(folder + "Template_NII_Calc_CSV.csv")
