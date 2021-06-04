@@ -108,3 +108,21 @@ def Clean_Table(table, table_name):
 
     else:
         return None
+
+
+def First_Row_Header(df):
+    new_header = df.iloc[0]  # grab the first row for the header
+    df = df[1:]  # take the data less the header row
+    df.columns = new_header
+    return df
+
+
+def DataFrame_toStr(df):
+    df = df.astype(object).fillna('None')
+    df = df.astype(str)
+    df = df.replace("", "None")
+    df = df.replace("None", np.nan)
+    # df = df.replace("", None)
+    df = df.astype(str)
+    return df
+

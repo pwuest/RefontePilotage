@@ -9,7 +9,7 @@ folder = "C:/Users/admin/Documents/Pilotage LBP"
 path_excel = "C:/Users/admin/Documents/Pilotage LBP/Consolidation 017 - test.xlsx"
 path_excel = "C:/Users/admin/Documents/Pilotage LBP/Exemple - Dashboard PPH.xlsx"
 folder = "C:/Users/admin/Documents/ST EBA ALM 2021/Template"
-path_excel = folder + "/Template Conso v68.xlsm"
+path_excel = folder + "/Template Conso v120.xlsm"
 
 
 # %% Load from ws excel 'range_string' range in the form of 'A1:B2' or 'A:B' or ''
